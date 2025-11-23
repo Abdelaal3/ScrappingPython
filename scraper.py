@@ -38,7 +38,8 @@ def scrape_filgoal_matches(date=None):
         if not league_header:
             continue
 
-        league_name = league_header.get_text(strip=True)
+        league_name = league_header.get_text(separator=" ", strip=True).split(" - ")[0]
+
 
         matches = block.find_all("div", class_="cin_cntnr")
 
