@@ -1,44 +1,41 @@
-from flask import Flask, request, jsonify
+from flask import Flask, jsonify, request
 from flask_cors import CORS
-from scraper import scrape_filgoal_matches
-from datetime import datetime
+import json
 import os
-
+from scraper import scrape_filgoal_matches
 
 app = Flask(__name__)
 CORS(app)
 
-@app.route('/matches', methods=['GET'])
+
+@app.route("/")
+def home():
+    return {
+        "message": "✅ FilGoal Matches API is running",
+        "endpoints": [
+            "/matches",
+            "/matches?date=YYYY-MM-DD"
+        ]
+    }
+
+
+@app.route("/matches")
 def get_matches():
-    """
-    GET /matches
-    Optional query param: date=YYYY-MM-DD
-    Returns today's matches or matches for the given date as JSON.
-    """
-    date = request.args.get('date')
+    date = request.args.get("date")
+
+    # لو تاريخ محدد → scrape مرة واحدة
     if date:
-        # Validate date format
-        try:
-            datetime.strptime(date, '%Y-%m-%d')
-        except ValueError:
-            return jsonify({"error": "Invalid date format. Use YYYY-MM-DD."}), 400
-    else:
-        date = None  # Will use today's date in scraper
-    try:
-        matches = scrape_filgoal_matches(date)
-        return jsonify(matches), 200
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return jsonify(scrape_filgoal_matches(date)), 200
 
-@app.errorhandler(404)
-def not_found(e):
-    return jsonify({"error": "Not found"}), 404
+    # لو تاريخ اليوم → اقرأ من الملف
+    if os.path.exists("daily_matches.json"):
+        with open("daily_matches.json", "r", encoding="utf-8") as f:
+            return jsonify(json.load(f)), 200
 
-@app.errorhandler(500)
-def internal_error(e):
-    return jsonify({"error": "Internal server error"}), 500
+    # fallback — لو الملف مش موجود
+    return jsonify(scrape_filgoal_matches()), 200
+
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
     app.run(host="0.0.0.0", port=port)
-
