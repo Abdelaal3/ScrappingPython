@@ -6,42 +6,38 @@ import json
 
 
 def scrape_filgoal_matches(date=None):
-    """Scrape FilGoal matches by date — default = today"""
+    """Scrape FilGoal matches by date, default = today"""
 
     if not date:
         date = datetime.today().strftime("%Y-%m-%d")
 
     url = f"https://www.filgoal.com/matches/?date={date}"
 
-    try:
-        response = requests.get(
-            url,
-            headers={"User-Agent": "Mozilla/5.0"},
-            timeout=10
-        )
-    except Exception as e:
-        print("❌ Request error:", e)
-        return []
+    response = requests.get(
+        url,
+        headers={"User-Agent": "Mozilla/5.0"},
+        timeout=10
+    )
 
     if response.status_code != 200:
-        print(f"❌ Request failed: {response.status_code}")
+        print(f"Request failed: {response.status_code}")
         return []
 
     soup = BeautifulSoup(response.text, "html.parser")
     matches_data = []
-    seen = set()  # ✅ prevent duplicates
+    seen_ids = set()  # ✅ لمنع التكرار
 
-    match_blocks = soup.find_all("div", class_="mc-block")
+    match_blocks = soup.find_all('div', class_='mc-block')
 
     for block in match_blocks:
-        league_header = block.find("h6")
+        league_header = block.find('h6')
         if not league_header:
             continue
 
+        # ✅ استخراج اسم الدوري الحقيقي
         league_name = league_header.get_text(separator=" ", strip=True).split(" - ")[0]
 
-
-        matches = block.find_all("div", class_="cin_cntnr")
+        matches = block.find_all('div', class_='cin_cntnr')
 
         for match in matches:
             link = match.find("a")
@@ -50,13 +46,13 @@ def scrape_filgoal_matches(date=None):
 
             match_url = "https://www.filgoal.com" + link.get("href", "")
 
-            match_id = re.search(r"/matches/(\d+)", match_url)
-            match_id = match_id.group(1) if match_id else None
+            # ✅ استخراج match_id
+            match_id_match = re.search(r"/matches/(\d+)", match_url)
+            match_id = match_id_match.group(1) if match_id_match else None
 
-            if not match_id or match_id in seen:
-                continue
-
-            seen.add(match_id)
+            if not match_id or match_id in seen_ids:
+                continue  # ✅ تجاهل المكررات
+            seen_ids.add(match_id)
 
             teams = link.find("div", class_="c-i-next")
             if not teams:
@@ -71,8 +67,10 @@ def scrape_filgoal_matches(date=None):
             home_score = home_div.find("b").text.strip() if home_div and home_div.find("b") else "-"
             away_score = away_div.find("b").text.strip() if away_div and away_div.find("b") else "-"
 
-            status = teams.find("span", class_="status")
-            status = status.text.strip() if status else "N/A"
+            result = f"{home_score} - {away_score}"  # ✅ النتيجة جاهزة للعرض
+
+            status_tag = teams.find("span", class_="status")
+            status = status_tag.text.strip() if status_tag else None
 
             aux = link.find("div", class_="match-aux")
             stadium = time = channel = None
@@ -85,14 +83,12 @@ def scrape_filgoal_matches(date=None):
 
                     icon = svg.find("use").get("xlink:href", "")
 
-                    text = span.text.strip()
-
                     if "fb_field" in icon:
-                        stadium = text
+                        stadium = span.text.strip()
                     elif "fb_calendar" in icon:
-                        time = text
+                        time = span.text.strip()
                     elif "fb_screen" in icon:
-                        channel = text
+                        channel = span.text.strip()
 
             matches_data.append({
                 "match_id": match_id,
@@ -101,6 +97,7 @@ def scrape_filgoal_matches(date=None):
                 "away_team": away,
                 "home_score": home_score,
                 "away_score": away_score,
+                "result": result,   # ✅ تمت إضافة النتيجة
                 "status": status,
                 "time": time,
                 "stadium": stadium,
@@ -112,7 +109,7 @@ def scrape_filgoal_matches(date=None):
 
 
 def save_daily_matches():
-    """Scrape today & save into JSON file"""
+    """Scrape today's matches + save into JSON file"""
     matches = scrape_filgoal_matches()
     with open("daily_matches.json", "w", encoding="utf-8") as f:
         json.dump(matches, f, ensure_ascii=False, indent=2)
