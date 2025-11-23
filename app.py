@@ -4,6 +4,11 @@ import json
 import os
 from scraper import scrape_filgoal_matches
 
+
+
+if os.path.exists("daily_matches.json"):
+    os.remove("daily_matches.json")
+
 app = Flask(__name__)
 CORS(app)
 
