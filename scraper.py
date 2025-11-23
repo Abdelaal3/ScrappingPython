@@ -6,40 +6,44 @@ import json
 
 
 def scrape_filgoal_matches(date=None):
-    """Scrape FilGoal matches by date, default = today"""
-    
+    """Scrape FilGoal matches by date — default = today"""
+
     if not date:
         date = datetime.today().strftime("%Y-%m-%d")
 
     url = f"https://www.filgoal.com/matches/?date={date}"
 
-    response = requests.get(
-        url,
-        headers={"User-Agent": "Mozilla/5.0"},
-        timeout=10
-    )
+    try:
+        response = requests.get(
+            url,
+            headers={"User-Agent": "Mozilla/5.0"},
+            timeout=10
+        )
+    except Exception as e:
+        print("❌ Request error:", e)
+        return []
 
     if response.status_code != 200:
-        print(f"Request failed: {response.status_code}")
+        print(f"❌ Request failed: {response.status_code}")
         return []
 
     soup = BeautifulSoup(response.text, "html.parser")
     matches_data = []
+    seen = set()  # ✅ prevent duplicates
 
-    # Select all leagues/competitions
-    match_blocks = soup.select("div.mc-block")
+    match_blocks = soup.find_all("div", class_="mc-block")
 
     for block in match_blocks:
-        league = block.select_one("h6")
-        if not league:
+        league_header = block.find("h6")
+        if not league_header:
             continue
-        league_name = league.get_text(strip=True)
 
-        # select all matches inside this league block
-        matches = block.select("div.cin_cntnr")
+        league_name = league_header.get_text(strip=True)
+
+        matches = block.find_all("div", class_="cin_cntnr")
 
         for match in matches:
-            link = match.select_one("a")
+            link = match.find("a")
             if not link:
                 continue
 
@@ -48,42 +52,55 @@ def scrape_filgoal_matches(date=None):
             match_id = re.search(r"/matches/(\d+)", match_url)
             match_id = match_id.group(1) if match_id else None
 
-            # extract team and match info with selectors
-            home = link.select_one(".c-i-next .f strong")
-            away = link.select_one(".c-i-next .s strong")
+            if not match_id or match_id in seen:
+                continue
 
-            home_score = link.select_one(".c-i-next .f b")
-            away_score = link.select_one(".c-i-next .s b")
+            seen.add(match_id)
 
-            status = link.select_one(".c-i-next .status")
+            teams = link.find("div", class_="c-i-next")
+            if not teams:
+                continue
 
-            # Extract stadium, time & channel icons
-            aux_spans = link.select(".match-aux span")
+            home_div = teams.find("div", class_="f")
+            away_div = teams.find("div", class_="s")
+
+            home = home_div.find("strong").text.strip() if home_div else None
+            away = away_div.find("strong").text.strip() if away_div else None
+
+            home_score = home_div.find("b").text.strip() if home_div and home_div.find("b") else "-"
+            away_score = away_div.find("b").text.strip() if away_div and away_div.find("b") else "-"
+
+            status = teams.find("span", class_="status")
+            status = status.text.strip() if status else "N/A"
+
+            aux = link.find("div", class_="match-aux")
             stadium = time = channel = None
 
-            for span in aux_spans:
-                icon = span.select_one("svg use")
-                if not icon:
-                    continue
+            if aux:
+                for span in aux.find_all("span"):
+                    svg = span.find("svg")
+                    if not svg:
+                        continue
 
-                href = icon.get("xlink:href", "")
-                text = span.get_text(strip=True)
+                    icon = svg.find("use").get("xlink:href", "")
 
-                if "fb_field" in href:
-                    stadium = text
-                elif "fb_calendar" in href:
-                    time = text
-                elif "fb_screen" in href:
-                    channel = text
+                    text = span.text.strip()
+
+                    if "fb_field" in icon:
+                        stadium = text
+                    elif "fb_calendar" in icon:
+                        time = text
+                    elif "fb_screen" in icon:
+                        channel = text
 
             matches_data.append({
                 "match_id": match_id,
                 "league": league_name,
-                "home_team": home.get_text(strip=True) if home else None,
-                "away_team": away.get_text(strip=True) if away else None,
-                "home_score": home_score.get_text(strip=True) if home_score else "-",
-                "away_score": away_score.get_text(strip=True) if away_score else "-",
-                "status": status.get_text(strip=True) if status else None,
+                "home_team": home,
+                "away_team": away,
+                "home_score": home_score,
+                "away_score": away_score,
+                "status": status,
                 "time": time,
                 "stadium": stadium,
                 "channel": channel,
@@ -94,7 +111,7 @@ def scrape_filgoal_matches(date=None):
 
 
 def save_daily_matches():
-    """Scrape today's matches + save into JSON file"""
+    """Scrape today & save into JSON file"""
     matches = scrape_filgoal_matches()
     with open("daily_matches.json", "w", encoding="utf-8") as f:
         json.dump(matches, f, ensure_ascii=False, indent=2)
