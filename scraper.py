@@ -4,13 +4,16 @@ from bs4 import BeautifulSoup
 from datetime import datetime
 import json
 import os
+import pytz
+
 
 
 def scrape_filgoal_matches(date=None):
     """Scrape FilGoal matches by date — default = today"""
 
     if not date:
-        date = datetime.today().strftime("%Y-%m-%d")
+        egypt_tz = pytz.timezone("Africa/Cairo")
+        date = datetime.now(egypt_tz).strftime("%Y-%m-%d")
 
     url = f"https://www.filgoal.com/matches/?date={date}"
 
