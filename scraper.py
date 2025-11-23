@@ -26,18 +26,20 @@ def scrape_filgoal_matches(date=None):
     soup = BeautifulSoup(response.text, "html.parser")
     matches_data = []
 
-    match_blocks = soup.find_all('div', class_='mc-block')
+    # Select all leagues/competitions
+    match_blocks = soup.select("div.mc-block")
 
     for block in match_blocks:
-        league_header = block.find('h6')
-        if not league_header:
+        league = block.select_one("h6 span")
+        if not league:
             continue
+        league_name = league.get_text(strip=True)
 
-        league_name = league_header.find('span').text.strip()
-        matches = block.find_all('div', class_='cin_cntnr')
+        # select all matches inside this league block
+        matches = block.select("div.cin_cntnr")
 
         for match in matches:
-            link = match.find("a")
+            link = match.select_one("a")
             if not link:
                 continue
 
@@ -46,48 +48,42 @@ def scrape_filgoal_matches(date=None):
             match_id = re.search(r"/matches/(\d+)", match_url)
             match_id = match_id.group(1) if match_id else None
 
-            teams = link.find("div", class_="c-i-next")
-            if not teams:
-                continue
+            # extract team and match info with selectors
+            home = link.select_one(".c-i-next .f strong")
+            away = link.select_one(".c-i-next .s strong")
 
-            home_div = teams.find("div", class_="f")
-            away_div = teams.find("div", class_="s")
+            home_score = link.select_one(".c-i-next .f b")
+            away_score = link.select_one(".c-i-next .s b")
 
-            home = home_div.find("strong").text.strip() if home_div else None
-            away = away_div.find("strong").text.strip() if away_div else None
+            status = link.select_one(".c-i-next .status")
 
-            home_score = home_div.find("b").text.strip() if home_div and home_div.find("b") else "-"
-            away_score = away_div.find("b").text.strip() if away_div and away_div.find("b") else "-"
-
-            status = teams.find("span", class_="status")
-            status = status.text.strip() if status else None
-
-            aux = link.find("div", class_="match-aux")
+            # Extract stadium, time & channel icons
+            aux_spans = link.select(".match-aux span")
             stadium = time = channel = None
 
-            if aux:
-                for span in aux.find_all("span"):
-                    svg = span.find("svg")
-                    if not svg:
-                        continue
+            for span in aux_spans:
+                icon = span.select_one("svg use")
+                if not icon:
+                    continue
 
-                    icon = svg.find("use").get("xlink:href", "")
+                href = icon.get("xlink:href", "")
+                text = span.get_text(strip=True)
 
-                    if "fb_field" in icon:
-                        stadium = span.text.strip()
-                    elif "fb_calendar" in icon:
-                        time = span.text.strip()
-                    elif "fb_screen" in icon:
-                        channel = span.text.strip()
+                if "fb_field" in href:
+                    stadium = text
+                elif "fb_calendar" in href:
+                    time = text
+                elif "fb_screen" in href:
+                    channel = text
 
             matches_data.append({
                 "match_id": match_id,
                 "league": league_name,
-                "home_team": home,
-                "away_team": away,
-                "home_score": home_score,
-                "away_score": away_score,
-                "status": status,
+                "home_team": home.get_text(strip=True) if home else None,
+                "away_team": away.get_text(strip=True) if away else None,
+                "home_score": home_score.get_text(strip=True) if home_score else "-",
+                "away_score": away_score.get_text(strip=True) if away_score else "-",
+                "status": status.get_text(strip=True) if status else None,
                 "time": time,
                 "stadium": stadium,
                 "channel": channel,
