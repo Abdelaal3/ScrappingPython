@@ -30,7 +30,7 @@ def scrape_filgoal_matches(date=None):
     match_blocks = soup.select("div.mc-block")
 
     for block in match_blocks:
-        league = block.select_one("h6 span")
+        league = block.select_one("h6")
         if not league:
             continue
         league_name = league.get_text(strip=True)
