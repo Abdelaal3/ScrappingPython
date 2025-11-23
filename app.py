@@ -1,39 +1,38 @@
+from flask import Flask, jsonify
 import requests
 from bs4 import BeautifulSoup
 import random
-import json
+
+app = Flask(__name__)
 
 BASE_URL = "https://www.filgoal.com"
 
-# ✅ Rotating user-agents to avoid blocking
 USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/123.0 Safari/537.36",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Safari/605.1.15",
     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/120.0 Safari/537.36",
 ]
 
-headers = {
-    "User-Agent": random.choice(USER_AGENTS)
-}
 
 def normalize_img(src):
-    """FilGoal sometimes uses // before domain, so convert it"""
     if src.startswith("//"):
         return "https:" + src
     return src
 
+
 def scrape_filgoal_today():
+    headers = {"User-Agent": random.choice(USER_AGENTS)}
     url = f"{BASE_URL}/matches/today"
     response = requests.get(url, headers=headers)
 
     if response.status_code != 200:
-        raise Exception(f"Failed to load page {response.status_code}")
+        return []
 
     soup = BeautifulSoup(response.text, "html.parser")
 
     results = []
 
-    leagues = soup.select(".mc-block")  # كل بطولة
+    leagues = soup.select(".mc-block")
 
     for league in leagues:
         league_name = league.select_one("h6 span")
@@ -53,7 +52,6 @@ def scrape_filgoal_today():
 
             status = match.select_one(".m .status")
 
-            # Extra match info (stadium - channel - date)
             aux = match.select(".match-aux span")
 
             stadium = channel = date = None
@@ -64,7 +62,7 @@ def scrape_filgoal_today():
             if len(aux) >= 3:
                 date = aux[2].get_text(strip=True)
 
-            match_data = {
+            results.append({
                 "league": league_name,
                 "matchUrl": match_url,
                 "homeTeam": home_team.get_text(strip=True) if home_team else None,
@@ -75,13 +73,21 @@ def scrape_filgoal_today():
                 "stadium": stadium,
                 "channel": channel,
                 "date": date,
-            }
-
-            results.append(match_data)
+            })
 
     return results
 
 
-if __name__ == "__main__":
+@app.get("/")
+def home():
+    return jsonify({"status": "running ✅"})
+
+
+@app.get("/matches")
+def matches():
     data = scrape_filgoal_today()
-    print(json.dumps(data, indent=2, ensure_ascii=False))
+    return jsonify(data)
+
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000)
