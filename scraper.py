@@ -133,5 +133,82 @@ def save_daily_matches():
     print(f"✅ Updated — {len(matches)} matches saved successfully!")
 
 
+
+
+def scrape_filgoal_article(article_id):
+    """Scrape full FilGoal article content"""
+
+    url = f"https://www.filgoal.com/articles/{article_id}"
+
+    response = requests.get(
+        url,
+        headers={
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                          "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        },
+        timeout=15
+    )
+
+    if response.status_code != 200:
+        return {}
+
+    soup = BeautifulSoup(response.text, "html.parser")
+
+    # ✅ get correct title
+    title_tag = soup.select_one("div.article div.title h1")
+    title = title_tag.get_text(strip=True) if title_tag else None
+
+    # ✅ get date
+    date_tag = soup.select_one("div.article div.title > p")
+    date = date_tag.get_text(strip=True) if date_tag else None
+
+    # ✅ get author
+    author_tag = soup.select_one("div.article div.title a.author")
+    author = author_tag.get_text(strip=True) if author_tag else None
+
+    # ✅ get main image
+    img_tag = soup.select_one("div.details img.responsive-img")
+    image = None
+    if img_tag:
+        image = img_tag.get("data-src") or img_tag.get("src")
+
+    # ✅ extract full content including h2
+    content_section = soup.select_one("#details_content")
+    content = None
+
+    if content_section:
+        # remove related box
+        for rel in content_section.select(".related"):
+            rel.decompose()
+
+        # allowed content blocks
+        blocks = content_section.find_all([
+            "h2", "h3", "p", "li", "strong", "span"
+        ])
+
+        extracted = []
+        for b in blocks:
+            text = b.get_text(" ", strip=True)
+            if text and text not in extracted:
+                extracted.append(text)
+
+        content = "\n\n".join(extracted)
+
+    return {
+        "article_id": article_id,
+        "title": title,
+        "date": date,
+        "author": author,
+        "image": image,
+        "content": content,
+        "url": url
+    }
+
+
+
+
+
 if __name__ == "__main__":
     save_daily_matches()
+
+
