@@ -3,8 +3,11 @@ from flask_cors import CORS
 
 from scraper import (
     scrape_filgoal_matches,
-    scrape_filgoal_article
+    scrape_filgoal_article,
+    scrape_latest_article_ids,
 )
+
+
 
 app = Flask(__name__)
 CORS(app)
@@ -16,7 +19,9 @@ def home():
         "endpoints": [
             "/matches",
             "/matches?date=YYYY-MM-DD",
-            "/article?id=ARTICLE_ID"
+            "/article?id=ARTICLE_ID",
+            "/articles-latest",
+
         ]
     }
 
@@ -24,6 +29,11 @@ def home():
 def get_matches():
     date = request.args.get("date")
     return jsonify(scrape_filgoal_matches(date)), 200
+
+
+@app.route("/articles-latest")
+def get_latest_articles():
+    return jsonify(scrape_latest_article_ids()), 200
 
 @app.route("/article")
 def get_single_article():

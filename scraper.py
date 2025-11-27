@@ -206,6 +206,41 @@ def scrape_filgoal_article(article_id):
 
 
 
+def scrape_latest_article_ids(limit=10):
+    url = "https://www.filgoal.com/articles"
+
+    response = requests.get(
+        url,
+        headers={
+            "User-Agent": "Mozilla/5.0"
+        },
+        timeout=15
+    )
+
+    if response.status_code != 200:
+        return []
+
+    soup = BeautifulSoup(response.text, "html.parser")
+
+    ids = []
+    article_links = soup.find_all("a", href=True)
+
+    for link in article_links:
+        href = link["href"]
+
+        match = re.search(r"/articles/(\d+)", href)
+        if match:
+            article_id = match.group(1)
+            if article_id not in ids:
+                ids.append(article_id)
+
+        if len(ids) >= limit:
+            break
+
+    return ids
+
+
+
 
 
 if __name__ == "__main__":
