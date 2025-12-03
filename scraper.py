@@ -384,12 +384,3 @@ def scrape_all_filgoal_teams(start_id=1, end_id=270):
 
     return teams
 
-
-
-
-
-
-if __name__ == "__main__":
-    save_daily_matches()
-
-
