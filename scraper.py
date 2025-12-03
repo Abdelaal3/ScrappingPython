@@ -243,6 +243,152 @@ def scrape_latest_article_ids(limit=10):
 
 
 
+
+
+def scrape_filgoal_team(team_id):
+    """
+    Scrape team details from FilGoal team page.
+    Example:
+    https://www.filgoal.com/teams/128/أتالانتا
+    """
+
+    url = f"https://www.filgoal.com/teams/{team_id}"
+    headers = {"User-Agent": "Mozilla/5.0"}
+
+    res = requests.get(url, headers=headers, timeout=15)
+    if res.status_code != 200:
+        return {"error": "Failed to fetch page"}
+
+    soup = BeautifulSoup(res.text, "html.parser")
+
+    data = {
+        "team_id": team_id,
+        "name": "",
+        "logo": "",
+        "coach": "",
+        "coach_image": "",
+        "founded": "",
+        "website": "",
+        "league": "",
+        "position": ""
+    }
+
+    # ----------------------------------------
+    # TEAM NAME — BEST universal selector
+    # ----------------------------------------
+    name_tag = soup.select_one("#section-links h1 a")
+    if name_tag:
+        data["name"] = name_tag.get_text(strip=True)
+
+    # Fallback: breadcrumb
+    if not data["name"]:
+        bread = soup.select_one(".breadCrumb li:last-child")
+        if bread:
+            data["name"] = bread.get_text(strip=True)
+
+    # Fallback 2: old selector (rare)
+    if not data["name"]:
+        h1 = soup.select_one("#hd h1, #hd .s a strong")
+        if h1:
+            data["name"] = h1.get_text(strip=True)
+
+    # ----------------------------------------
+    # TEAM LOGO
+    # ----------------------------------------
+    logo = soup.select_one("#hd .f img")
+    if logo:
+        data["logo"] = logo.get("data-src") or logo.get("src") or ""
+
+    # ----------------------------------------
+    # COACH NAME
+    # ----------------------------------------
+    coach_b = soup.find("b", string=lambda t: t and "مدرب" in t)
+    if coach_b and coach_b.parent:
+        full = coach_b.parent.get_text(strip=True)
+        data["coach"] = full.replace("مدرب الفريق", "").strip()
+
+    # ----------------------------------------
+    # COACH IMAGE
+    # ----------------------------------------
+    coach_img = soup.select_one("#hd .s span img")
+    if coach_img:
+        data["coach_image"] = coach_img.get("data-src") or coach_img.get("src") or ""
+
+    # ----------------------------------------
+    # FOUNDED YEAR
+    # ----------------------------------------
+    for li in soup.select("#hd li"):
+        b = li.find("b")
+        if b and "التأسيس" in b.get_text():
+            span = li.find("span")
+            if span:
+                data["founded"] = span.get_text(strip=True)
+            break
+
+    # ----------------------------------------
+    # WEBSITE
+    # ----------------------------------------
+    site_li = soup.select_one("li[itemprop='url'] a")
+    if site_li:
+        data["website"] = site_li.get("href", "").strip()
+
+    # ----------------------------------------
+    # ACTIVE LEAGUE
+    # ----------------------------------------
+    active_league = soup.select_one(".mn_list a.active")
+    if active_league:
+        data["league"] = active_league.get_text(strip=True)
+
+    # ----------------------------------------
+    # LEAGUE POSITION
+    # ----------------------------------------
+    pos = soup.select_one(".fg_tbl .fg_rw.s .t1")
+    if pos:
+        data["position"] = pos.get_text(strip=True)
+
+    return data
+
+
+
+
+
+
+def scrape_all_filgoal_teams(start_id=1, end_id=270):
+    teams = []
+    headers = {"User-Agent": "Mozilla/5.0"}
+
+    for team_id in range(start_id, end_id + 1):
+
+        url = f"https://www.filgoal.com/teams/{team_id}"
+
+        try:
+            res = requests.get(url, headers=headers, timeout=10)
+            if res.status_code != 200:
+                continue
+
+            soup = BeautifulSoup(res.text, "html.parser")
+
+            name_tag = soup.select_one("#section-links h1 a")
+            if not name_tag:
+                continue
+
+            name = name_tag.get_text(strip=True)
+
+            teams.append({
+                "id": team_id,
+                "name": name
+            })
+
+        except:
+            continue
+
+    return teams
+
+
+
+
+
+
 if __name__ == "__main__":
     save_daily_matches()
 
