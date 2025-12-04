@@ -5,9 +5,9 @@ from scraper import (
     scrape_filgoal_matches,
     scrape_filgoal_article,
     scrape_latest_article_ids,
-    scrape_filgoal_team,
-    scrape_all_filgoal_teams,
 )
+
+
 
 app = Flask(__name__)
 CORS(app)
@@ -21,8 +21,7 @@ def home():
             "/matches?date=YYYY-MM-DD",
             "/article?id=ARTICLE_ID",
             "/articles-latest",
-            "/team?id=TEAM_ID",
-            "/teams-list"
+
         ]
     }
 
@@ -36,7 +35,6 @@ def get_matches():
 def get_latest_articles():
     return jsonify(scrape_latest_article_ids()), 200
 
-
 @app.route("/article")
 def get_single_article():
     article_id = request.args.get("id")
@@ -44,26 +42,6 @@ def get_single_article():
         return jsonify({"error": "Missing article ID"}), 400
 
     return jsonify(scrape_filgoal_article(article_id)), 200
-
-
-@app.route("/team")
-def get_team():
-    team_id = request.args.get("id")
-    if not team_id:
-        return jsonify({"error": "Missing id"}), 400
-
-    data = scrape_filgoal_team(team_id)
-    return jsonify(data), 200
-
-
-@app.route("/teams-list")
-def get_teams_list():
-    start = int(request.args.get("start", 1))
-    end = int(request.args.get("end", 270))
-
-    return jsonify(scrape_all_filgoal_teams(start, end)), 200
-
-
 
 if __name__ == "__main__":
     import os
