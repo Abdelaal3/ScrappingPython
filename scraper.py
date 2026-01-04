@@ -206,7 +206,7 @@ def scrape_filgoal_article(article_id):
 
 
 
-def scrape_latest_article_ids(limit=5):
+def scrape_latest_article_ids(limit=1):
     url = "https://www.filgoal.com/articles"
 
     response = requests.get(
